@@ -1,6 +1,8 @@
 name: Build G45 KSU Final
+
 on:
   workflow_dispatch:
+
 jobs:
   build:
     runs-on: ubuntu-22.04
@@ -8,23 +10,45 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Install Deps
-        run: sudo apt-get update && sudo apt-get install -y bc bison flex libssl-dev libelf-dev build-essential cpio libarchive-tools
+
+      - name: Setup Deps
+        run: |
+          sudo apt update
+          sudo apt install -y bc bison flex libssl-dev libelf-dev git ccache
+
       - name: Setup Clang
         run: |
-          mkdir -p $HOME/toolchain
-          cd $HOME/toolchain
+          mkdir -p clang
           wget -q https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r536225.tar.gz -O clang.tar.gz
-          tar -xzf clang.tar.gz
-          echo "$HOME/toolchain/bin" >> $GITHUB_PATH
-      - name: Setup KSU
-        run: curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/legacy/kernel/setup.sh" | bash -s legacy
-      - name: Build
+          tar -xzf clang.tar.gz -C clang/
+          echo "$PWD/clang/bin" >> $GITHUB_PATH
+
+      - name: Setup KSU-Next
+        run: |
+          curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s next
+          echo -e "CONFIG_KSU=y\nCONFIG_KSU_KPROBES_HOOK=n" >> arch/arm64/configs/gki_defconfig
+
+      - name: Build Kernel
         run: |
           export ARCH=arm64
-          make O=out vendor/parrot_defconfig
-          make -j$(nproc) O=out ARCH=arm64 CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1 Image.gz dtb.img dtbo.img
-      - uses: actions/upload-artifact@v4
+          export LLVM=1
+          export LLVM_IAS=1
+          mkdir -p out
+          make O=out gki_defconfig
+          ./scripts/kconfig/merge_config.sh -m -O out out/.config arch/arm64/configs/vendor/parrot_GKI.config arch/arm64/configs/vendor/parrot_consolidate.config
+          make O=out olddefconfig
+          make O=out -j$(nproc --all) Image.gz dtb.img dtbo.img --verbose
+
+      - name: Package AK3
+        run: |
+          git clone https://github.com/osm0sis/AnyKernel3.git ak3
+          cp out/arch/arm64/boot/Image.gz ak3/
+          cp out/arch/arm64/boot/dtb.img ak3/ 2>/dev/null || true
+          cp out/arch/arm64/boot/dtbo.img ak3/ 2>/dev/null || true
+          cd ak3 && zip -r9 ../Moto-G45-KSU-Parrot.zip * -x .git/*
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
         with:
           name: Moto-G45-KSU
-          path: out/arch/arm64/boot/
+          path: Moto-G45-KSU-Parrot.zip
