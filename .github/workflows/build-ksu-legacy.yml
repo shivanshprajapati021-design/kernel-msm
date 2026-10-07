@@ -1,0 +1,37 @@
+name: Build KSU-Next Legacy for moto g45
+on:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install deps
+        run: sudo apt-get update && sudo apt-get install -y bc bison flex libssl-dev libelf-dev dwarves python3
+
+      - name: Setup Clang
+        run: |
+          mkdir -p $HOME/clang
+          wget -q https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r547379.tar.gz -O clang.tar.gz
+          tar -xzf clang.tar.gz -C $HOME/clang
+          echo "$HOME/clang/bin" >> $GITHUB_PATH
+
+      - name: Apply KSU
+        run: curl -LSs https://raw.githubusercontent.com/rifsxd/KernelSU-Next/next/kernel/setup.sh | bash -s next
+
+      - name: Build
+        run: |
+          export PATH=$HOME/clang/bin:$PATH
+          export ARCH=arm64
+          export SUBARCH=arm64
+          make O=out vendor/parrot-perf_defconfig
+          make O=out ARCH=arm64 CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1 -j4 Image.gz
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kernel-g45-ksu
+          path: out/arch/arm64/boot/Image*
