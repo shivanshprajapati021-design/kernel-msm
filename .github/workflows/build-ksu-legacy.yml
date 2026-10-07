@@ -1,0 +1,54 @@
+name: Build KSU-Next Legacy for moto g45
+on:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y bc bison flex libssl-dev libelf-dev build-essential libncurses-dev python3
+
+      - name: Add KSU-Next Legacy Driver
+        run: |
+          curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s legacy
+          echo "KSU added"
+
+      - name: Setup Defconfig for parrot/fogos
+        run: |
+          # moto g45 uses parrot defconfig
+          if [ -f arch/arm64/configs/vendor/parrot_defconfig ]; then
+            echo "CONFIG_KSU=y" >> arch/arm64/configs/vendor/parrot_defconfig
+            echo "CONFIG_KSU_KPROBES_HOOK=y" >> arch/arm64/configs/vendor/parrot_defconfig
+            echo "CONFIG_KPROBES=y" >> arch/arm64/configs/vendor/parrot_defconfig
+            echo "CONFIG_KPROBE_EVENTS=y" >> arch/arm64/configs/vendor/parrot_defconfig
+          else
+            echo "CONFIG_KSU=y" >> arch/arm64/configs/parrot_defconfig
+            echo "CONFIG_KSU_KPROBES_HOOK=y" >> arch/arm64/configs/parrot_defconfig
+            echo "CONFIG_KPROBES=y" >> arch/arm64/configs/parrot_defconfig
+            echo "CONFIG_KPROBE_EVENTS=y" >> arch/arm64/configs/parrot_defconfig
+          fi
+
+      - name: Build Kernel
+        run: |
+          export ARCH=arm64
+          export SUBARCH=arm64
+          export CROSS_COMPILE=aarch64-linux-gnu-
+          sudo apt install -y gcc-aarch64-linux-gnu
+          make vendor/parrot_defconfig || make parrot_defconfig
+          make -j$(nproc) Image.gz dtb.img
+
+      - name: Upload Kernel
+        uses: actions/upload-artifact@v4
+        with:
+          name: moto-g45-ksu-legacy-kernel
+          path: |
+            arch/arm64/boot/Image.gz
+            arch/arm64/boot/dtb.img
+            arch/arm64/boot/*.dtb
