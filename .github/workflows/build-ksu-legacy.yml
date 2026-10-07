@@ -10,45 +10,38 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install Dependencies
+      - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y bc bison flex libssl-dev libelf-dev build-essential libncurses-dev python3
+          sudo apt install -y python2 python3 bison flex libssl-dev libelf-dev bc cpio pahole libxml2-utils libncurses-dev
 
-      - name: Add KSU-Next Legacy Driver
+      - name: Setup Clang r510928
         run: |
-          curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s legacy
-          echo "KSU added"
+          mkdir -p $HOME/toolchain
+          cd $HOME/toolchain
+          wget -q https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r510928.tar.gz -O clang.tar.gz
+          tar -xf clang.tar.gz
+          echo "$HOME/toolchain/clang-r510928/bin" >> $GITHUB_PATH
 
-      - name: Setup Defconfig for parrot/fogos
+      - name: Apply KSU-Next
         run: |
-          # moto g45 uses parrot defconfig
-          if [ -f arch/arm64/configs/vendor/parrot_defconfig ]; then
-            echo "CONFIG_KSU=y" >> arch/arm64/configs/vendor/parrot_defconfig
-            echo "CONFIG_KSU_KPROBES_HOOK=y" >> arch/arm64/configs/vendor/parrot_defconfig
-            echo "CONFIG_KPROBES=y" >> arch/arm64/configs/vendor/parrot_defconfig
-            echo "CONFIG_KPROBE_EVENTS=y" >> arch/arm64/configs/vendor/parrot_defconfig
-          else
-            echo "CONFIG_KSU=y" >> arch/arm64/configs/parrot_defconfig
-            echo "CONFIG_KSU_KPROBES_HOOK=y" >> arch/arm64/configs/parrot_defconfig
-            echo "CONFIG_KPROBES=y" >> arch/arm64/configs/parrot_defconfig
-            echo "CONFIG_KPROBE_EVENTS=y" >> arch/arm64/configs/parrot_defconfig
-          fi
+          curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/next/kernel/setup.sh" | bash -s next
 
       - name: Build Kernel
         run: |
           export ARCH=arm64
           export SUBARCH=arm64
-          export CROSS_COMPILE=aarch64-linux-gnu-
-          sudo apt install -y gcc-aarch64-linux-gnu
-          make vendor/parrot_defconfig || make parrot_defconfig
-          make -j$(nproc) Image.gz dtb.img
+          export KBUILD_BUILD_USER=builder
+          export KBUILD_BUILD_HOST=github
+          make O=out vendor/parrot-perf_defconfig
+          make O=out ARCH=arm64 SUBARCH=arm64 CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1 -j$(nproc --all) 2>&1 | tee build.log
 
-      - name: Upload Kernel
+      - name: Upload Kernel Image
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: moto-g45-ksu-legacy-kernel
+          name: moto-g45-ksu-kernel
           path: |
-            arch/arm64/boot/Image.gz
-            arch/arm64/boot/dtb.img
-            arch/arm64/boot/*.dtb
+            out/arch/arm64/boot/Image.gz
+            out/arch/arm64/boot/Image
+            build.log
