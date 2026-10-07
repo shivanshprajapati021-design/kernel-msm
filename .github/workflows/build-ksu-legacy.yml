@@ -8,30 +8,34 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
+          submodules: recursive
 
       - name: Install deps
-        run: sudo apt-get update && sudo apt-get install -y bc bison flex libssl-dev libelf-dev dwarves python3
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bc bison flex libssl-dev libelf-dev build-essential libarchive-tools
 
       - name: Setup Clang
         run: |
           mkdir -p $HOME/clang
           wget -q https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r547379.tar.gz -O clang.tar.gz
-          tar -xzf clang.tar.gz -C $HOME/clang
-          echo "$HOME/clang/bin" >> $GITHUB_PATH
+          tar -xzf clang.tar.gz -C $HOME
+          echo "$HOME/clang-r547379/bin" >> $GITHUB_PATH
 
-      - name: Apply KSU
-        run: curl -LSs https://raw.githubusercontent.com/rifsxd/KernelSU-Next/next/kernel/setup.sh | bash -s next
-
-      - name: Build
+      - name: Setup KSU-Next
         run: |
-          export PATH=$HOME/clang/bin:$PATH
-          export ARCH=arm64
-          export SUBARCH=arm64
-          make O=out vendor/parrot-perf_defconfig
-          make O=out ARCH=arm64 CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1 -j4 Image.gz
+          curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s next
 
-      - uses: actions/upload-artifact@v4
-        if: always()
+      - name: Build Kernel
+        run: |
+          export KBUILD_BUILD_USER="shivansh"
+          export KBUILD_BUILD_HOST="github"
+          export PATH=$HOME/clang-r547379/bin:$PATH
+          make ARCH=arm64 O=out parrot_defconfig
+          make ARCH=arm64 O=out -j$(nproc) CLANG_TRIPLE=aarch64-linux-gnu- LLVM=1 LLVM_IAS=1
+
+      - name: Upload Image
+        uses: actions/upload-artifact@v4
         with:
-          name: kernel-g45-ksu
+          name: kernel-ksu-moto-g45
           path: out/arch/arm64/boot/Image*
