@@ -1,0 +1,30 @@
+name: Build G45 KSU Final
+on:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install Deps
+        run: sudo apt-get update && sudo apt-get install -y bc bison flex libssl-dev libelf-dev build-essential cpio libarchive-tools
+      - name: Setup Clang
+        run: |
+          mkdir -p $HOME/toolchain
+          cd $HOME/toolchain
+          wget -q https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r536225.tar.gz -O clang.tar.gz
+          tar -xzf clang.tar.gz
+          echo "$HOME/toolchain/bin" >> $GITHUB_PATH
+      - name: Setup KSU
+        run: curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/legacy/kernel/setup.sh" | bash -s legacy
+      - name: Build
+        run: |
+          export ARCH=arm64
+          make O=out vendor/parrot_defconfig
+          make -j$(nproc) O=out ARCH=arm64 CC=clang LD=ld.lld LLVM=1 LLVM_IAS=1 Image.gz dtb.img dtbo.img
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Moto-G45-KSU
+          path: out/arch/arm64/boot/
