@@ -18,10 +18,9 @@ jobs:
 
       - name: Setup Clang
         run: |
-          mkdir -p clang
-          wget -q https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r536225.tar.gz -O clang.tar.gz
-          tar -xzf clang.tar.gz -C clang/
+          git clone https://github.com/LineageOS/android_prebuilts_clang_kernel_linux-x86_clang-r536225.git --depth 1 clang
           echo "$PWD/clang/bin" >> $GITHUB_PATH
+          clang/bin/clang --version
 
       - name: Setup KSU-Next
         run: |
