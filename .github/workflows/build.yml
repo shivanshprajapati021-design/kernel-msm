@@ -37,7 +37,7 @@ jobs:
           make O=out gki_defconfig
           ./scripts/kconfig/merge_config.sh -m -O out out/.config arch/arm64/configs/vendor/parrot_GKI.config arch/arm64/configs/vendor/parrot_consolidate.config
           make O=out olddefconfig
-          make O=out -j$(nproc --all) Image.gz dtb.img dtbo.img --verbose
+          make O=out -j$(nproc --all) Image.gz dtb.img dtbo.img
 
       - name: Package AK3
         run: |
