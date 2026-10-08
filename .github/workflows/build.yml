@@ -21,13 +21,12 @@ jobs:
         with:
           repository: crdroidandroid/android_prebuilts_clang_host_linux-x86_clang-r536225
           path: clang
-          depth: 1
+          fetch-depth: 1
 
       - name: Setup Clang Path
         run: |
           echo "$PWD/clang/bin" >> $GITHUB_PATH
           clang/bin/clang --version
-          clang/bin/ld.lld --version
 
       - name: Setup KSU-Next
         run: |
@@ -41,20 +40,4 @@ jobs:
           export LLVM_IAS=1
           mkdir -p out
           make O=out gki_defconfig
-          ./scripts/kconfig/merge_config.sh -m -O out out/.config arch/arm64/configs/vendor/parrot_GKI.config arch/arm64/configs/vendor/parrot_consolidate.config
-          make O=out olddefconfig
-          make O=out -j$(nproc --all) Image.gz dtb.img dtbo.img
-
-      - name: Package AK3
-        run: |
-          git clone https://github.com/osm0sis/AnyKernel3.git ak3
-          cp out/arch/arm64/boot/Image.gz ak3/
-          cp out/arch/arm64/boot/dtb.img ak3/ 2>/dev/null || true
-          cp out/arch/arm64/boot/dtbo.img ak3/ 2>/dev/null || true
-          cd ak3 && zip -r9 ../Moto-G45-KSU-Parrot.zip * -x .git/*
-
-      - name: Upload
-        uses: actions/upload-artifact@v4
-        with:
-          name: Moto-G45-KSU
-          path: Moto-G45-KSU-Parrot.zip
+          ./scripts/kconfig/merge_config.sh -m -O out out/.config arch/arm64/configs/vendor/parrot_G
