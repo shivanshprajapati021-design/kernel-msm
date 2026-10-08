@@ -17,10 +17,17 @@ jobs:
           sudo apt install -y bc bison flex libssl-dev libelf-dev git ccache
 
       - name: Setup Clang
+        uses: actions/checkout@v4
+        with:
+          repository: crdroidandroid/android_prebuilts_clang_host_linux-x86_clang-r536225
+          path: clang
+          depth: 1
+
+      - name: Setup Clang Path
         run: |
-          git clone https://github.com/LineageOS/android_prebuilts_clang_kernel_linux-x86_clang-r536225.git --depth 1 clang
           echo "$PWD/clang/bin" >> $GITHUB_PATH
           clang/bin/clang --version
+          clang/bin/ld.lld --version
 
       - name: Setup KSU-Next
         run: |
