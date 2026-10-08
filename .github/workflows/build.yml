@@ -14,19 +14,17 @@ jobs:
       - name: Setup Deps and Clang
         run: |
           sudo apt update
-          sudo apt install -y bc bison flex libssl-dev libelf-dev git ccache clang-17 lld-17
-          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-17 100
-          sudo update-alternatives --install /usr/bin/ld.lld ld.lld /usr/bin/ld.lld-17 100
+          sudo apt install -y bc bison flex libssl-dev libelf-dev git ccache clang lld llvm
           mkdir -p clang/bin
-          ln -sf /usr/bin/clang-17 clang/bin/clang
-          ln -sf /usr/bin/clang++-17 clang/bin/clang++
-          ln -sf /usr/bin/ld.lld-17 clang/bin/ld.lld
-          ln -sf /usr/bin/llvm-objcopy-17 clang/bin/llvm-objcopy
-          ln -sf /usr/bin/llvm-ar-17 clang/bin/llvm-ar
-          ln -sf /usr/bin/llvm-nm-17 clang/bin/llvm-nm
-          ln -sf /usr/bin/llvm-strip-17 clang/bin/llvm-strip
-          ln -sf /usr/bin/llvm-objdump-17 clang/bin/llvm-objdump
-          ln -sf /usr/bin/llvm-readelf-17 clang/bin/llvm-readelf
+          ln -sf /usr/bin/clang clang/bin/clang
+          ln -sf /usr/bin/clang++ clang/bin/clang++
+          ln -sf /usr/bin/ld.lld clang/bin/ld.lld
+          ln -sf /usr/bin/llvm-objcopy clang/bin/llvm-objcopy
+          ln -sf /usr/bin/llvm-ar clang/bin/llvm-ar
+          ln -sf /usr/bin/llvm-nm clang/bin/llvm-nm
+          ln -sf /usr/bin/llvm-strip clang/bin/llvm-strip
+          ln -sf /usr/bin/llvm-objdump clang/bin/llvm-objdump
+          ln -sf /usr/bin/llvm-readelf clang/bin/llvm-readelf
           echo "$PWD/clang/bin" >> $GITHUB_PATH
           clang --version
 
