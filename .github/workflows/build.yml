@@ -11,22 +11,24 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Deps
+      - name: Setup Deps and Clang
         run: |
           sudo apt update
-          sudo apt install -y bc bison flex libssl-dev libelf-dev git ccache
-
-      - name: Setup Clang
-        uses: actions/checkout@v4
-        with:
-          repository: crdroidandroid/android_prebuilts_clang_host_linux-x86_clang-r536225
-          path: clang
-          fetch-depth: 1
-
-      - name: Setup Clang Path
-        run: |
+          sudo apt install -y bc bison flex libssl-dev libelf-dev git ccache clang-17 lld-17
+          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-17 100
+          sudo update-alternatives --install /usr/bin/ld.lld ld.lld /usr/bin/ld.lld-17 100
+          mkdir -p clang/bin
+          ln -sf /usr/bin/clang-17 clang/bin/clang
+          ln -sf /usr/bin/clang++-17 clang/bin/clang++
+          ln -sf /usr/bin/ld.lld-17 clang/bin/ld.lld
+          ln -sf /usr/bin/llvm-objcopy-17 clang/bin/llvm-objcopy
+          ln -sf /usr/bin/llvm-ar-17 clang/bin/llvm-ar
+          ln -sf /usr/bin/llvm-nm-17 clang/bin/llvm-nm
+          ln -sf /usr/bin/llvm-strip-17 clang/bin/llvm-strip
+          ln -sf /usr/bin/llvm-objdump-17 clang/bin/llvm-objdump
+          ln -sf /usr/bin/llvm-readelf-17 clang/bin/llvm-readelf
           echo "$PWD/clang/bin" >> $GITHUB_PATH
-          clang/bin/clang --version
+          clang --version
 
       - name: Setup KSU-Next
         run: |
@@ -40,4 +42,20 @@ jobs:
           export LLVM_IAS=1
           mkdir -p out
           make O=out gki_defconfig
-          ./scripts/kconfig/merge_config.sh -m -O out out/.config arch/arm64/configs/vendor/parrot_G
+          ./scripts/kconfig/merge_config.sh -m -O out out/.config arch/arm64/configs/vendor/parrot_GKI.config arch/arm64/configs/vendor/parrot_consolidate.config
+          make O=out olddefconfig
+          make O=out -j$(nproc --all) Image.gz dtb.img dtbo.img
+
+      - name: Package AK3
+        run: |
+          git clone https://github.com/osm0sis/AnyKernel3.git ak3
+          cp out/arch/arm64/boot/Image.gz ak3/
+          cp out/arch/arm64/boot/dtb.img ak3/ 2>/dev/null || true
+          cp out/arch/arm64/boot/dtbo.img ak3/ 2>/dev/null || true
+          cd ak3 && zip -r9 ../Moto-G45-KSU-Parrot.zip * -x .git/*
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: Moto-G45-KSU
+          path: Moto-G45-KSU-Parrot.zip
