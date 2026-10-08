@@ -1,4 +1,4 @@
-name: Moto G45 Non-GKI KSU Build
+name: Moto G45 Fast Build
 
 on:
   workflow_dispatch:
@@ -8,51 +8,44 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
         with:
-          fetch-depth: 0
+          key: g45-parrot
+          max-size: 2G
 
       - name: Install Deps
-        run: |
-          sudo apt update
-          sudo apt install -y bc bison flex libssl-dev libelf-dev cpio pahole python3 git
+        run: sudo apt update && sudo apt install -y bc bison flex libssl-dev libelf-dev cpio pahole git
 
       - name: Setup Proton Clang
         run: |
           git clone https://github.com/kdrag0n/proton-clang.git --depth=1 clang
           echo "$PWD/clang/bin" >> $GITHUB_PATH
-          clang/bin/clang --version
 
-      - name: Setup KSU Non-GKI (Legacy)
-        run: |
-          # Ye non-GKI ke liye special script hai
-          curl -LSs "https://raw.githubusercontent.com/mlm-games/KernelSU-Non-GKI/main/kernel/setup-subm.sh" | bash -s
-          # Teri device ka defconfig
-          ls arch/arm64/configs/vendor/ | grep parrot
-          python3 KernelSU/scripts/integrate-no-kprobe.py arch/arm64/configs/vendor/parrot_defconfig
+      - name: Setup KSU
+        run: curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s
 
-      - name: Build Kernel
+      - name: Build
         run: |
-          set -e
           export ARCH=arm64
           export LLVM=1
           export LLVM_IAS=1
+          export CC="ccache clang"
           mkdir -p out
           make O=out ARCH=arm64 vendor/parrot_defconfig
-          make O=out ARCH=arm64 -j$(nproc --all) Image dtb.img dtbo.img 2>&1 | tee build.log
-          ls -lh out/arch/arm64/boot/
-          gzip -c out/arch/arm64/boot/Image > out/arch/arm64/boot/Image.gz || true
+          echo "CONFIG_KSU=y" >> out/.config
+          make O=out ARCH=arm64 olddefconfig
+          make O=out ARCH=arm64 -j$(nproc --all) Image
 
-      - name: Package AK3
+      - name: Package
         run: |
           git clone https://github.com/osm0sis/AnyKernel3.git ak3
           cp out/arch/arm64/boot/Image ak3/
-          cp out/arch/arm64/boot/Image.gz ak3/ 2>/dev/null || true
-          cp out/arch/arm64/boot/dtb.img ak3/ 2>/dev/null || true
-          cp out/arch/arm64/boot/dtbo.img ak3/ 2>/dev/null || true
-          cd ak3 && zip -r9 ../Moto-G45-KSU-NonGKI.zip * -x .git/*
+          cd ak3 && zip -r9 ../Moto-G45.zip * -x .git/*
 
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: Moto-G45-KSU-NonGKI-Final
-          path: Moto-G45-KSU-NonGKI.zip
+          name: Moto-G45-Fast
+          path: Moto-G45.zip
