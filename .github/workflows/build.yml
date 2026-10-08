@@ -30,36 +30,22 @@ jobs:
 
       - name: Build Kernel
         run: |
+          set -e
           export ARCH=arm64
           export LLVM=1
           export LLVM_IAS=1
           mkdir -p out
           make O=out gki_defconfig
-          # Parrot ka config merge - sirf 1 hi karenge, 2 karne se error aata hai
           ./scripts/kconfig/merge_config.sh -m -O out out/.config arch/arm64/configs/vendor/parrot_GKI.config
           make O=out olddefconfig
-          make O=out -j$(nproc --all) CC="ccache clang" Image.gz dtb.img dtbo.img 2>&1 | tee build.log
-          echo "BUILD SUCCESS"
+          make O=out -j$(nproc --all) Image dtb.img dtbo.img
+          # gzip bana lo AK3 ke liye
+          gzip -c out/arch/arm64/boot/Image > out/arch/arm64/boot/Image.gz || true
+          ls -lh out/arch/arm64/boot/
 
       - name: Package AK3
-        if: success()
         run: |
+          ls -lh out/arch/arm64/boot/
           git clone https://github.com/osm0sis/AnyKernel3.git ak3
-          cp out/arch/arm64/boot/Image.gz ak3/
-          cp out/arch/arm64/boot/dtb.img ak3/ 2>/dev/null || true
-          cp out/arch/arm64/boot/dtbo.img ak3/ 2>/dev/null || true
-          cd ak3 && zip -r9 ../Moto-G45-KSU-Parrot.zip * -x .git/*
-
-      - name: Upload Zip
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: Moto-G45-KSU-Final
-          path: Moto-G45-KSU-Parrot.zip
-
-      - name: Upload Log on Fail
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-log
-          path: build.log
+          # Image ya Image.gz jo bhi mile copy karo
+          cp out/arch/arm64/boot/Image ak3
